@@ -1,0 +1,131 @@
+{% extends "base_simple.html" %}
+
+{% block title %}Statistics - spoXpro Admin{% endblock %}
+
+{% block content %}
+<!-- Overview Stats -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="fas fa-box fa-3x text-primary mb-3"></i>
+                <h5>Products</h5>
+                <h3 class="text-primary">{{ stats.products.total }}</h3>
+                <p class="text-muted">{{ stats.products.active }} active</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="fas fa-shopping-cart fa-3x text-success mb-3"></i>
+                <h5>Orders</h5>
+                <h3 class="text-success">{{ stats.orders.total }}</h3>
+                <p class="text-muted">Total orders processed</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="fas fa-users fa-3x text-info mb-3"></i>
+                <h5>Users</h5>
+                <h3 class="text-info">{{ stats.users.total }}</h3>
+                <p class="text-muted">{{ stats.users.active }} active</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Revenue Card -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Revenue Overview</h5>
+            </div>
+            <div class="card-body text-center">
+                <i class="fas fa-ruble-sign fa-4x text-warning mb-3"></i>
+                <h2 class="text-warning">₽{{ "%.2f"|format(stats.orders.revenue.total) }}</h2>
+                <p class="text-muted">Total Revenue Generated</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Categories Breakdown -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Products by Category</h5>
+            </div>
+            <div class="card-body">
+                {% for category in stats.products.by_category %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span>{{ category.name }}</span>
+                    <span class="badge bg-primary">{{ category.count }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Orders by Status</h5>
+            </div>
+            <div class="card-body">
+                {% for status in stats.orders.by_status %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-capitalize">{{ status.status }}</span>
+                    <span class="badge 
+                        {% if status.status == 'completed' %}bg-success
+                        {% elif status.status == 'pending' %}bg-warning
+                        {% elif status.status == 'cancelled' %}bg-danger
+                        {% else %}bg-secondary{% endif %}">
+                        {{ status.count }}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Additional Info -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">System Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 text-center">
+                        <i class="fas fa-calendar fa-2x text-primary mb-2"></i>
+                        <p><strong>Last Updated</strong></p>
+                        <p class="text-muted">{{ moment().format('DD.MM.YYYY HH:mm') if moment else 'Now' }}</p>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <i class="fas fa-database fa-2x text-success mb-2"></i>
+                        <p><strong>Database</strong></p>
+                        <p class="text-success">Connected</p>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <i class="fas fa-server fa-2x text-info mb-2"></i>
+                        <p><strong>Server Status</strong></p>
+                        <p class="text-success">Running</p>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <i class="fas fa-chart-line fa-2x text-warning mb-2"></i>
+                        <p><strong>Performance</strong></p>
+                        <p class="text-success">Optimal</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

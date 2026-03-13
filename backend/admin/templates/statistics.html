@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Overview Cards -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-primary shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                            Всего товаров</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.products.total }}</div>
+                        <div class="text-xs text-success">{{ stats.products.active }} активных</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-box fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-success shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                            Всего пользователей</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.users.total }}</div>
+                        <div class="text-xs text-success">{{ stats.users.active }} активных</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-users fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-info shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                            Всего заказов</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.orders.total }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-shopping-cart fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-warning shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                            Общая выручка</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">₽{{ "%.2f"|format(stats.orders.revenue.total) }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Products by Category Chart -->
+    <div class="col-lg-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Товары по категориям</h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Orders by Status Chart -->
+    <div class="col-lg-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Заказы по статусу</h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Products by Category Table -->
+    <div class="col-lg-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Разбивка по категориям</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Категория</th>
+                                <th>Товары</th>
+                                <th>Процент</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for category in stats.products.by_category %}
+                            <tr>
+                                <td>{{ category.name }}</td>
+                                <td>{{ category.count }}</td>
+                                <td>
+                                    {% set percentage = (category.count / stats.products.total * 100) if stats.products.total > 0 else 0 %}
+                                    {{ "%.1f"|format(percentage) }}%
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Orders by Status Table -->
+    <div class="col-lg-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Разбивка по статусу заказов</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Статус</th>
+                                <th>Заказы</th>
+                                <th>Процент</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for status in stats.orders.by_status %}
+                            <tr>
+                                <td>
+                                    <span class="badge 
+                                        {% if status.status == 'completed' %}bg-success
+                                        {% elif status.status == 'pending' %}bg-warning text-dark
+                                        {% elif status.status == 'confirmed' %}bg-info
+                                        {% elif status.status == 'paid' %}bg-primary
+                                        {% elif status.status == 'shipped' %}bg-secondary
+                                        {% elif status.status == 'cancelled' %}bg-danger
+                                        {% else %}bg-light text-dark{% endif %}">
+                                        {{ status.status.title() }}
+                                    </span>
+                                </td>
+                                <td>{{ status.count }}</td>
+                                <td>
+                                    {% set percentage = (status.count / stats.orders.total * 100) if stats.orders.total > 0 else 0 %}
+                                    {{ "%.1f"|format(percentage) }}%
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Key Metrics -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Ключевые показатели</h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <div class="border-right">
+                            <h4 class="text-primary">{{ "%.1f"|format((stats.products.active / stats.products.total * 100) if stats.products.total > 0 else 0) }}%</h4>
+                            <p class="text-muted mb-0">Активные товары</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border-right">
+                            <h4 class="text-success">{{ "%.1f"|format((stats.users.active / stats.users.total * 100) if stats.users.total > 0 else 0) }}%</h4>
+                            <p class="text-muted mb-0">Активные пользователи</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border-right">
+                            <h4 class="text-info">₽{{ "%.2f"|format(stats.orders.revenue.total / stats.orders.total if stats.orders.total > 0 else 0) }}</h4>
+                            <p class="text-muted mb-0">Средний чек</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <h4 class="text-warning">{{ stats.products.total + stats.users.total + stats.orders.total }}</h4>
+                        <p class="text-muted mb-0">Всего записей</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Products by Category Chart
+const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+const categoryChart = new Chart(categoryCtx, {
+    type: 'doughnut',
+    data: {
+        labels: [{% for category in stats.products.by_category %}'{{ category.name }}'{% if not loop.last %},{% endif %}{% endfor %}],
+        datasets: [{
+            data: [{% for category in stats.products.by_category %}{{ category.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+            backgroundColor: [
+                '#4e73df',
+                '#1cc88a',
+                '#36b9cc',
+                '#f6c23e',
+                '#e74a3b',
+                '#858796',
+                '#5a5c69'
+            ],
+            hoverBackgroundColor: [
+                '#2e59d9',
+                '#17a673',
+                '#2c9faf',
+                '#f4b619',
+                '#e02d1b',
+                '#6c757d',
+                '#484848'
+            ],
+            hoverBorderColor: "rgba(234, 236, 244, 1)",
+        }],
+    },
+    options: {
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: true,
+                position: 'bottom'
+            }
+        }
+    },
+});
+
+// Orders by Status Chart
+const statusCtx = document.getElementById('statusChart').getContext('2d');
+const statusChart = new Chart(statusCtx, {
+    type: 'bar',
+    data: {
+        labels: [{% for status in stats.orders.by_status %}'{{ status.status.title() }}'{% if not loop.last %},{% endif %}{% endfor %}],
+        datasets: [{
+            label: 'Заказы',
+            data: [{% for status in stats.orders.by_status %}{{ status.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+            backgroundColor: [
+                '#4e73df',
+                '#1cc88a',
+                '#36b9cc',
+                '#f6c23e',
+                '#e74a3b',
+                '#858796'
+            ],
+            borderColor: [
+                '#4e73df',
+                '#1cc88a',
+                '#36b9cc',
+                '#f6c23e',
+                '#e74a3b',
+                '#858796'
+            ],
+            borderWidth: 1
+        }]
+    },
+    options: {
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    stepSize: 1
+                }
+            }
+        },
+        plugins: {
+            legend: {
+                display: false
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

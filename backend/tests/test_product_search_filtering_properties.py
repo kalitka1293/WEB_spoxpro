@@ -10,67 +10,16 @@ from hypothesis import given, strategies as st, settings, HealthCheck, assume
 from decimal import Decimal
 from typing import List, Dict, Any, Optional
 import uuid
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
 from backend.db.services.product_service import ProductService
 from backend.db.models.product import Product, ProductSize, ProductType, Category, SportType, Material
-from backend.config.database import Base
+# from .conftest import create_test_db_session, create_sample_helper_data
 
 
 # Valid clothing sizes as per requirements
 VALID_SIZES = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL", "XXXXL"]
 VALID_GENDERS = ["male", "female", "unisex"]
 VALID_COLORS = ["Red", "Blue", "Green", "Black", "White", "Yellow", "Purple", "Orange", "Pink", "Gray"]
-
-
-def create_test_db_session():
-    """Create a test database session for property tests."""
-    # Use in-memory SQLite database for faster tests
-    test_engine = create_engine(
-        "sqlite:///:memory:",
-        echo=False,
-        connect_args={"check_same_thread": False}
-    )
-    
-    # Enable foreign key constraints for SQLite
-    from sqlalchemy import event
-    
-    @event.listens_for(test_engine, "connect")
-    def set_sqlite_pragma(dbapi_connection, connection_record):
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
-    
-    # Create test session
-    TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
-    
-    # Create all tables
-    Base.metadata.create_all(bind=test_engine)
-    
-    # Create session
-    return TestSessionLocal()
-
-
-def create_sample_helper_data(db):
-    """Create sample helper table data for property tests."""
-    # Create helper table records with unique names to avoid conflicts
-    unique_suffix = str(uuid.uuid4())[:8]
-    
-    product_type = ProductType(name=f"T-Shirt-{unique_suffix}")
-    category = Category(name=f"Men's Clothing-{unique_suffix}")
-    sport_type = SportType(name=f"Running-{unique_suffix}")
-    material = Material(name=f"Cotton-{unique_suffix}")
-    
-    db.add_all([product_type, category, sport_type, material])
-    db.commit()
-    
-    return {
-        "product_type": product_type,
-        "category": category,
-        "sport_type": sport_type,
-        "material": material
-    }
 
 
 # Hypothesis strategies for generating test data
@@ -237,7 +186,7 @@ class TestProductSearchFilteringProperties:
         filters=filter_criteria_strategy()
     )
     @settings(
-        max_examples=20,
+        max_examples=100,
         deadline=None,
         suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large]
     )
@@ -375,6 +324,133 @@ class TestProductSearchFilteringProperties:
                 
                 assert has_size_available, \
                     f"Product {product.id} returned for size {size_filter} but doesn't have it available"
+        
+        finally:
+            db.close()
+    
+    @given(
+        products_data=st.lists(product_data_strategy(), min_size=3, max_size=8),
+        min_price=st.decimals(min_value=Decimal('10.00'), max_value=Decimal('50.00'), places=2),
+        max_price=st.decimals(min_value=Decimal('50.01'), max_value=Decimal('200.00'), places=2)
+    )
+    @settings(
+        max_examples=50,
+        deadline=None,
+        suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large]
+    )
+    def test_price_range_filtering(self, products_data, min_price, max_price):
+        """
+        Property: Price range filtering should only return products within the specified range.
+        """
+        # Create test database session
+        db = create_test_db_session()
+        
+        try:
+            # Create helper data
+            helper_data = create_sample_helper_data(db)
+            product_service = ProductService(db)
+            
+            # Create test products
+            created_products = create_test_products(db, product_service, helper_data, products_data)
+            
+            # Skip test if no products were created successfully
+            assume(len(created_products) > 0)
+            
+            # Filter by price range
+            filters = {'min_price': min_price, 'max_price': max_price}
+            filtered_products = product_service.get_products_filtered(filters)
+            
+            # Verify all returned products are within the price range
+            for product in filtered_products:
+                assert min_price <= product.price <= max_price, \
+                    f"Product {product.id} price {product.price} is outside range [{min_price}, {max_price}]"
+        
+        finally:
+            db.close()
+    
+    @given(
+        products_data=st.lists(product_data_strategy(), min_size=3, max_size=8),
+        color_filter=st.sampled_from(VALID_COLORS),
+        gender_filter=st.sampled_from(VALID_GENDERS)
+    )
+    @settings(
+        max_examples=50,
+        deadline=None,
+        suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large]
+    )
+    def test_multiple_filter_combination(self, products_data, color_filter, gender_filter):
+        """
+        Property: When multiple filters are applied, products must match ALL criteria.
+        """
+        # Create test database session
+        db = create_test_db_session()
+        
+        try:
+            # Create helper data
+            helper_data = create_sample_helper_data(db)
+            product_service = ProductService(db)
+            
+            # Create test products
+            created_products = create_test_products(db, product_service, helper_data, products_data)
+            
+            # Skip test if no products were created successfully
+            assume(len(created_products) > 0)
+            
+            # Apply multiple filters
+            filters = {
+                'color': color_filter,
+                'gender': gender_filter
+            }
+            filtered_products = product_service.get_products_filtered(filters)
+            
+            # Verify all returned products match ALL filter criteria
+            for product in filtered_products:
+                assert color_filter.lower() in product.color.lower(), \
+                    f"Product {product.id} color '{product.color}' doesn't match filter '{color_filter}'"
+                
+                assert product.gender == gender_filter, \
+                    f"Product {product.id} gender '{product.gender}' doesn't match filter '{gender_filter}'"
+        
+        finally:
+            db.close()
+    
+    @given(
+        products_data=st.lists(product_data_strategy(), min_size=1, max_size=5)
+    )
+    @settings(
+        max_examples=30,
+        deadline=None,
+        suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large]
+    )
+    def test_impossible_filter_returns_empty(self, products_data):
+        """
+        Property: Filters that cannot match any products should return empty results.
+        """
+        # Create test database session
+        db = create_test_db_session()
+        
+        try:
+            # Create helper data
+            helper_data = create_sample_helper_data(db)
+            product_service = ProductService(db)
+            
+            # Create test products
+            created_products = create_test_products(db, product_service, helper_data, products_data)
+            
+            # Skip test if no products were created successfully
+            assume(len(created_products) > 0)
+            
+            # Create an impossible filter (very high price range)
+            impossible_filters = {
+                'min_price': Decimal('9999.99'),
+                'max_price': Decimal('99999.99')
+            }
+            
+            filtered_products = product_service.get_products_filtered(impossible_filters)
+            
+            # Should return empty results
+            assert len(filtered_products) == 0, \
+                f"Impossible filter should return no products, but got {len(filtered_products)}"
         
         finally:
             db.close()

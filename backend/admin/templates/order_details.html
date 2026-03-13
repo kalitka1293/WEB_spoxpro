@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block page_actions %}
+<div class="btn-toolbar mb-2 mb-md-0">
+    <div class="btn-group me-2">
+        <a href="/admin/orders" class="btn btn-sm btn-secondary">
+            <i class="fas fa-arrow-left"></i> Назад к заказам
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <!-- Order Items -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Товары заказа</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Товар</th>
+                                <th>Размер</th>
+                                <th>Количество</th>
+                                <th>Цена</th>
+                                <th>Подытог</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in order_items %}
+                            <tr>
+                                <td>
+                                    <strong>{{ item.product.name if item.product else 'Product #' + item.product_id|string }}</strong>
+                                </td>
+                                <td>{{ item.size }}</td>
+                                <td>{{ item.quantity }}</td>
+                                <td>₽{{ "%.2f"|format(item.price_at_time) }}</td>
+                                <td>₽{{ "%.2f"|format(item.price_at_time * item.quantity) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-active">
+                                <th colspan="4" class="text-end">Итого:</th>
+                                <th>₽{{ "%.2f"|format(order.total_amount) }}</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Timeline -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Хронология заказа</h5>
+            </div>
+            <div class="card-body">
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-primary"></div>
+                        <div class="timeline-content">
+                            <h6 class="timeline-title">Заказ создан</h6>
+                            <p class="timeline-description">Заказ был размещен клиентом</p>
+                            <small class="text-muted">{{ order.created_date.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                        </div>
+                    </div>
+                    
+                    {% if order.status != 'pending' %}
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-info"></div>
+                        <div class="timeline-content">
+                            <h6 class="timeline-title">Status: {{ order.status.title() }}</h6>
+                            <p class="timeline-description">Текущий статус заказа</p>
+                            <small class="text-muted">Обновлено</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <!-- Order Summary -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Сводка заказа</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <td><strong>ID заказа:</strong></td>
+                        <td>#{{ order.id }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>ID пользователя:</strong></td>
+                        <td>{{ order.user_id }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Статус:</strong></td>
+                        <td>
+                            <span class="badge 
+                                {% if order.status == 'completed' %}bg-success
+                                {% elif order.status == 'pending' %}bg-warning text-dark
+                                {% elif order.status == 'confirmed' %}bg-info
+                                {% elif order.status == 'paid' %}bg-primary
+                                {% elif order.status == 'shipped' %}bg-secondary
+                                {% elif order.status == 'cancelled' %}bg-danger
+                                {% else %}bg-light text-dark{% endif %}">
+                                {{ order.status.title() }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>Общая сумма:</strong></td>
+                        <td><strong>₽{{ "%.2f"|format(order.total_amount) }}</strong></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Создан:</strong></td>
+                        <td>{{ order.created_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Status Update -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Обновить статус</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" action="/admin/orders/{{ order.id }}/status">
+                    <div class="mb-3">
+                        <label for="status" class="form-label">Новый статус</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="pending" {% if order.status == 'pending' %}selected{% endif %}>Ожидает</option>
+                            <option value="confirmed" {% if order.status == 'confirmed' %}selected{% endif %}>Подтвержден</option>
+                            <option value="paid" {% if order.status == 'paid' %}selected{% endif %}>Оплачен</option>
+                            <option value="shipped" {% if order.status == 'shipped' %}selected{% endif %}>Отправлен</option>
+                            <option value="completed" {% if order.status == 'completed' %}selected{% endif %}>Завершен</option>
+                            <option value="cancelled" {% if order.status == 'cancelled' %}selected{% endif %}>Отменен</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-save"></i> Обновить статус
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Shipping Information -->
+        {% if order.shipping_address %}
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Информация о доставке</h5>
+            </div>
+            <div class="card-body">
+                <address>
+                    {{ order.shipping_address }}
+                </address>
+                {% if order.payment_method %}
+                <p><strong>Способ оплаты:</strong> {{ order.payment_method }}</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #dee2e6;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 30px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -22px;
+    top: 0;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px #dee2e6;
+}
+
+.timeline-content {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    border-left: 3px solid #007bff;
+}
+
+.timeline-title {
+    margin-bottom: 5px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.timeline-description {
+    margin-bottom: 5px;
+    font-size: 13px;
+    color: #6c757d;
+}
+</style>
+{% endblock %}

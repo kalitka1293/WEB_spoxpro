@@ -1,0 +1,149 @@
+{% extends "base_simple.html" %}
+
+{% block title %}Dashboard - spoXpro Admin{% endblock %}
+
+{% block content %}
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card card-stats">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col">
+                        <h5 class="card-title text-uppercase text-muted mb-0">Products</h5>
+                        <span class="h2 font-weight-bold mb-0">{{ stats.total_products }}</span>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-box fa-2x text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card card-stats">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col">
+                        <h5 class="card-title text-uppercase text-muted mb-0">Users</h5>
+                        <span class="h2 font-weight-bold mb-0">{{ stats.total_users }}</span>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-users fa-2x text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card card-stats">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col">
+                        <h5 class="card-title text-uppercase text-muted mb-0">Orders</h5>
+                        <span class="h2 font-weight-bold mb-0">{{ stats.total_orders }}</span>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-shopping-cart fa-2x text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card card-stats">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col">
+                        <h5 class="card-title text-uppercase text-muted mb-0">Revenue</h5>
+                        <span class="h2 font-weight-bold mb-0">₽{{ "%.2f"|format(stats.total_revenue) }}</span>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-ruble-sign fa-2x text-info"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Welcome Message -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Welcome to spoXpro Admin Panel</h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">
+                    This is the administrative interface for the spoXpro e-commerce platform. 
+                    Use the navigation menu to manage products, orders, and view statistics.
+                </p>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <a href="/admin/products" class="btn btn-primary w-100">
+                            <i class="fas fa-box"></i> Manage Products
+                        </a>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <a href="/admin/orders" class="btn btn-success w-100">
+                            <i class="fas fa-shopping-cart"></i> View Orders
+                        </a>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <a href="/admin/statistics" class="btn btn-info w-100">
+                            <i class="fas fa-chart-bar"></i> View Statistics
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- System Status -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">System Status</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <i class="fas fa-database fa-2x text-success mb-2"></i>
+                            <p class="mb-0"><strong>Database</strong></p>
+                            <span class="badge bg-success">Online</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <i class="fas fa-server fa-2x text-success mb-2"></i>
+                            <p class="mb-0"><strong>API Server</strong></p>
+                            <span class="badge bg-success">Running</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <i class="fas fa-cogs fa-2x text-success mb-2"></i>
+                            <p class="mb-0"><strong>Admin Panel</strong></p>
+                            <span class="badge bg-success">Active</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <i class="fas fa-shield-alt fa-2x text-success mb-2"></i>
+                            <p class="mb-0"><strong>Security</strong></p>
+                            <span class="badge bg-success">Protected</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

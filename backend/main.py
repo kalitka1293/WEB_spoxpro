@@ -28,6 +28,11 @@ from docs import get_api_documentation, get_openapi_tags
 
 # Import routers
 from routes.auth import router as auth_router
+from routes.store import router as store_router
+from routes.user import router as user_router
+
+# Import admin panel
+from admin.complete_admin import admin_app
 from routes.user import router as user_router
 from routes.store import router as store_router
 
@@ -163,6 +168,9 @@ app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(store_router)
 
+# Mount admin panel
+app.mount("/admin", admin_app)
+
 
 @app.get("/", tags=["root"])
 async def root():
@@ -172,7 +180,8 @@ async def root():
         "version": settings.app_version,
         "environment": settings.environment,
         "docs": "/docs",
-        "redoc": "/redoc"
+        "redoc": "/redoc",
+        "admin_panel": "/admin"
     }
 
 
