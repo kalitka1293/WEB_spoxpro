@@ -1,43 +1,29 @@
-"""
-spoXpro E-commerce Backend - FastAPI Application Entry Point
-
-A comprehensive sports clothing e-commerce platform backend built with FastAPI,
-SQLAlchemy, and SQLite. Provides product management, user authentication,
-shopping cart operations, and order processing.
-"""
-
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-import logging
 import uvicorn
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import time
 import uuid
 
+from fastapi_csrf_protect import CsrfProtect
+from fastapi_csrf_protect.exceptions import CsrfProtectError
+from pydantic import BaseModel
+
 # Import configuration and logging
-from config.settings import get_settings, validate_required_settings
+from config.settings import get_settings
 from logs.log_store import setup_logging, get_logger, log_api_request, log_api_response
-from db.main import init_database, health_check
-from middleware.exception_handlers import register_exception_handlers
-from docs import get_api_documentation, get_openapi_tags
-
-# Import routers
-from routes.auth import router as auth_router
-from routes.store import router as store_router
-from routes.user import router as user_router
-
-# Import admin panel
-from admin.complete_admin import admin_app
-from routes.user import router as user_router
-from routes.store import router as store_router
+from fastapi import Request, Response
+import secrets
+from service.csrf import require_csrf
 
 # Get settings
 settings = get_settings()
+setup_logging()
 
 
 @asynccontextmanager
@@ -48,18 +34,8 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
     
     try:
-        # Validate configuration
-        validate_required_settings()
-        logger.info("Configuration validation successful")
         
-        # Initialize database
-        if init_database():
-            logger.info("Database initialization successful")
-        else:
-            logger.error("Database initialization failed")
-            raise Exception("Database initialization failed")
-        
-        logger.info("Application startup completed successfully")
+        logger.info("Need inizializate DB")
         
     except Exception as e:
         logger.error(f"Application startup failed: {e}")
@@ -71,47 +47,59 @@ async def lifespan(app: FastAPI):
     logger.info("Application shutdown completed")
 
 
+
 # Create FastAPI application
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
-    description=get_api_documentation()["description"],
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_tags=get_openapi_tags(),
     lifespan=lifespan
 )
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=settings.cors_allow_credentials,
-    allow_methods=settings.cors_allow_methods,
-    allow_headers=settings.cors_allow_headers,
-)
 
-# Register exception handlers
-register_exception_handlers(app)
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
-# Add authentication middleware
-from middleware.auth_middleware import auth_middleware, admin_middleware
-app.middleware("http")(auth_middleware)
-app.middleware("http")(admin_middleware)
+
+@app.middleware("http")
+async def session_middleware(request: Request, call_next):
+    if request.url.path.startswith("/admin"):
+        return await call_next(request)
+    # Проверяем наличие session_id
+    session_id = request.cookies.get("session_id")
+
+    if not session_id:
+        session_id = secrets.token_hex(16)
+        response = Response()
+        response.set_cookie(
+            key="session_id",
+            value=session_id,
+            httponly=False,
+            max_age=2592000,
+            path="/"
+        )
+        request.state.session_id = session_id
+        return response
+
+    request.state.session_id = session_id
+    response = await call_next(request)
+    return response
 
 
 @app.middleware("http")
 async def logging_middleware(request: Request, call_next):
+    if request.url.path.startswith("/admin"):
+        return await call_next(request)
     """Middleware to log all HTTP requests and responses."""
     # Generate request ID
     request_id = str(uuid.uuid4())
-    
+
     # Get client IP
     client_ip = request.client.host if request.client else "unknown"
-    
+
     # Start timer
     start_time = time.time()
-    
+
     # Log request
     logger = get_logger("api")
     log_api_request(
@@ -121,14 +109,14 @@ async def logging_middleware(request: Request, call_next):
         ip_address=client_ip,
         request_id=request_id
     )
-    
+
     # Process request
     try:
         response = await call_next(request)
-        
+
         # Calculate duration
         duration = time.time() - start_time
-        
+
         # Log response
         log_api_response(
             logger=logger,
@@ -139,13 +127,13 @@ async def logging_middleware(request: Request, call_next):
             ip_address=client_ip,
             request_id=request_id
         )
-        
+
         return response
-        
+
     except Exception as e:
         # Calculate duration
         duration = time.time() - start_time
-        
+
         # Log error response
         logger.error(
             f"Request failed: {request.method} {request.url.path} - {str(e)} ({duration:.3f}s)",
@@ -158,64 +146,44 @@ async def logging_middleware(request: Request, call_next):
                 "request_id": request_id
             }
         )
-        
+
         # Re-raise the exception
         raise
 
+from starlette.middleware.sessions import SessionMiddleware
 
-# Include routers
-app.include_router(auth_router)
-app.include_router(user_router)
-app.include_router(store_router)
-
-# Mount admin panel
-app.mount("/admin", admin_app)
-
-
-@app.get("/", tags=["root"])
-async def root():
-    """Root endpoint with application information."""
-    return {
-        "message": f"Welcome to {settings.app_name}",
-        "version": settings.app_version,
-        "environment": settings.environment,
-        "docs": "/docs",
-        "redoc": "/redoc",
-        "admin_panel": "/admin"
-    }
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.add_middleware(SessionMiddleware, secret_key=settings.jwt_secret_key)
 
 
-@app.get("/health", tags=["health"])
-async def health():
-    """Health check endpoint."""
-    try:
-        db_health = health_check()
-        
-        return {
-            "status": "healthy" if db_health["status"] == "healthy" else "unhealthy",
-            "timestamp": time.time(),
-            "version": settings.app_version,
-            "environment": settings.environment,
-            "database": db_health
-        }
-    except Exception as e:
-        logger = get_logger(__name__)
-        logger.error(f"Health check failed: {e}")
-        
-        return JSONResponse(
-            status_code=503,
-            content={
-                "status": "unhealthy",
-                "timestamp": time.time(),
-                "error": str(e)
-            }
-        )
+# Routes
+from routes.store import router_store
+from routes.review import router_review
+from routes.basket import router_basket
+from routes.auth import router_auth
+from routes.user import router_user
+from admin import setup_admin
+from fastapi.staticfiles import StaticFiles
+import os
 
+app.include_router(router_store, prefix="/store")
+app.include_router(router_review, prefix="/review")
+app.include_router(router_basket, prefix="/basket")
+app.include_router(router_auth, prefix="/auth")
+app.include_router(router_user, prefix="/user")
 
-@app.get("/api-docs", tags=["root"])
-async def api_documentation():
-    """Get comprehensive API documentation with examples."""
-    return get_api_documentation()
+os.makedirs("static/uploads", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/upload_dir", StaticFiles(directory="upload_dir"), name="uploads")
+
+setup_admin(app)
 
 
 def main():

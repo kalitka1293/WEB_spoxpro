@@ -4,12 +4,15 @@ import { Star, Truck, Shield, Headphones } from 'lucide-react'
 import { CLOTHING_CATEGORIES } from '../types/product'
 import { mockProducts } from '../data/mockProducts'
 
+
 const HomePage: React.FC = () => {
   const [currentImage, setCurrentImage] = React.useState(0)
   const [progress, setProgress] = React.useState(0)
   const [isDimming, setIsDimming] = React.useState(false)
   const featuredCategories = CLOTHING_CATEGORIES.slice(0, 6)
   
+
+
   // Минимальная цена по категории (с учетом скидки)
   const minPriceByCategory = React.useMemo(() => {
     const map = new Map<string, number>()
@@ -100,11 +103,10 @@ const HomePage: React.FC = () => {
             alt="spoXpro Collection"
             className={`w-full h-full object-cover transition-all duration-500 ${isDimming ? 'brightness-95' : 'brightness-100'}`}
             onError={(e) => {
-              console.error('Image failed to load:', heroImages[currentImage]);
               const target = e.target as HTMLImageElement;
               target.style.display = 'none';
             }}
-            onLoad={() => console.log('Image loaded successfully:', heroImages[currentImage])}
+            onLoad={() => {}}
           />
         </div>
 

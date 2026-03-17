@@ -1,27 +1,36 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react'
+import { Trash2, ShoppingBag, ArrowRight } from 'lucide-react'
+import { getBasketUser, deleteBasketUser } from '@/API/RequestAPI'
+import { ProductAllItem } from '@/API/interface'
 
 const CartPage: React.FC = () => {
-  const [cartItems, setCartItems] = useState<any[]>([])
+  const [cartItems, setCartItems] = useState<ProductAllItem[]>([])
 
-  const updateQuantity = (id: string, newQuantity: number) => {
-    if (newQuantity === 0) {
+  useEffect(() => {
+    const fetchBasket = async () => {
+      try {
+        const data = await getBasketUser()
+        const list = Array.isArray(data) ? data : (data as any).productList ?? []
+        setCartItems(list as ProductAllItem[])
+      } catch (error) {
+        console.error('Ошибка загрузки корзины:', error)
+      }
+    }
+    fetchBasket()
+  }, [])
+
+  const removeItem = async (id: number) => {
+    try {
+      await deleteBasketUser(id)
       setCartItems(items => items.filter(item => item.id !== id))
-    } else {
-      setCartItems(items => 
-        items.map(item => 
-          item.id === id ? { ...item, quantity: newQuantity } : item
-        )
-      )
+      window.dispatchEvent(new Event('cart-updated'))
+    } catch (error) {
+      console.error('Ошибка удаления:', error)
     }
   }
 
-  const removeItem = (id: string) => {
-    setCartItems(items => items.filter(item => item.id !== id))
-  }
-
-  const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+  const total = cartItems.reduce((sum, item) => sum + item.price, 0)
 
   if (cartItems.length === 0) {
     return (
@@ -77,30 +86,12 @@ const CartPage: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className="flex items-center space-x-3">
-                    <div className="flex items-center border border-gray-300 rounded-lg">
-                      <button
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                        className="p-2 hover:bg-gray-100 transition-colors"
-                      >
-                        <Minus className="h-4 w-4" />
-                      </button>
-                      <span className="px-4 py-2 font-medium">{item.quantity}</span>
-                      <button
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                        className="p-2 hover:bg-gray-100 transition-colors"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    </div>
-                    
-                    <button
-                      onClick={() => removeItem(item.id)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => removeItem(item.id)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             ))}
@@ -120,30 +111,20 @@ const CartPage: React.FC = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Доставка</span>
-                  <span className="font-medium">
-                    {total >= 3000 ? 'Бесплатно' : '300₽'}
-                  </span>
+                  <span className="font-medium">Бесплатно</span>
                 </div>
                 <div className="border-t pt-4">
                   <div className="flex justify-between text-lg font-bold">
                     <span>Итого</span>
-                    <span>{total >= 3000 ? total : total + 300}₽</span>
+                    <span>{total}₽</span>
                   </div>
                 </div>
               </div>
 
-              {total < 3000 && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                  <p className="text-sm text-blue-800">
-                    Добавьте товаров на {3000 - total}₽ для бесплатной доставки
-                  </p>
-                </div>
-              )}
-
-              <button className="w-full btn-primary text-lg py-4 mb-4">
+              <Link to="/checkout" className="w-full btn-primary text-lg py-4 mb-4 flex items-center justify-center">
                 Оформить заказ
                 <ArrowRight className="ml-2 h-5 w-5" />
-              </button>
+              </Link>
               
               <Link 
                 to="/catalog"

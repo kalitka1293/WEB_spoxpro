@@ -1,14 +1,61 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Search, ShoppingBag, User, Menu, X } from 'lucide-react'
 import { CLOTHING_CATEGORIES } from '../../types/product'
+import { getCategory, getBasketScore, checkUser } from '@/API/RequestAPI'
+import { Category } from '@/API/interface'
+import { toast } from '@/components/Toast'
+
 
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const navigate = useNavigate()
+  const location = useLocation()
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen)
-  const toggleSearch = () => setIsSearchOpen(!isSearchOpen)
+  const handleSearchClick = () => {
+    if (location.pathname !== '/catalog') {
+      navigate('/catalog?search=open')
+    } else {
+      window.dispatchEvent(new Event('toggle-search'))
+    }
+  }
+
+  const [category, setCategory] = useState<Category | null>(null);
+  const [cartCount, setCartCount] = useState(0);
+
+  useEffect(() => {
+    const fetchCategory = async () => {
+      try {
+        const data = await getCategory();
+        if (data !== undefined && data !== null) {  // ← ИСПРАВЛЕНИЕ
+        setCategory(data);
+      }
+      } catch (error) {
+        toast('Ошибка загрузки категории')
+        console.error('Ошибка загрузки категории:', error);
+      }
+    };
+
+    fetchCategory();
+    
+    const fetchBasketScore = async () => {
+      try {
+        const data = await getBasketScore();
+        if (data !== undefined && data !== null) {
+          setCartCount(data.score);
+        }
+      } catch (error) {
+        console.error('Ошибка загрузки корзины:', error);
+      }
+    };
+    fetchBasketScore();
+
+    const onCartUpdated = () => setCartCount(prev => prev + 1)
+    window.addEventListener('cart-updated', onCartUpdated)
+    return () => window.removeEventListener('cart-updated', onCartUpdated)
+  }, []);
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
@@ -69,15 +116,16 @@ const Header: React.FC = () => {
                     </div>
                     
                     {/* Список всех категорий */}
-                    {CLOTHING_CATEGORIES.map((category) => (
-                      <Link
-                        key={category.id}
-                        to={`/catalog?category=${category.id}`}
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                      >
-                        {category.name}
-                      </Link>
-                    ))}
+
+                    {category?.category_main?.map((cat) => (
+                        <Link
+                          key={cat.id}
+                          to={`/catalog?category=${cat.id}`}
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                        >
+                          {cat.name}
+                        </Link>
+                      ))}
                   </div>
 
                   {/* Средняя колонка - Вид спорта */}
@@ -90,42 +138,15 @@ const Header: React.FC = () => {
                     </div>
                     
                     {/* Список активностей */}
-                    <Link
-                      to="/catalog?activity=fitness"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                    >
-                      Fitness
-                    </Link>
-                    <Link
-                      to="/catalog?activity=yoga"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                    >
-                      Yoga
-                    </Link>
-                    <Link
-                      to="/catalog?activity=running"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                    >
-                      Бег
-                    </Link>
-                    <Link
-                      to="/catalog?activity=walking"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                    >
-                      Прогулка
-                    </Link>
-                    <Link
-                      to="/catalog?activity=stretching"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                    >
-                      Растяжка
-                    </Link>
-                    <Link
-                      to="/catalog?activity=dancing"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                    >
-                      Танцы
-                    </Link>
+                    {category?.category_sport?.map((cat) => (
+                        <Link
+                          key={cat.id}
+                          to={`/catalog?activity=${cat.id}`}
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                        >
+                          {cat.name}
+                        </Link>
+                      ))}
                   </div>
 
                   {/* Правая колонка - Аксессуары */}
@@ -138,30 +159,17 @@ const Header: React.FC = () => {
                     </div>
                     
                     {/* Список аксессуаров */}
-                    <Link
-                      to="/catalog?accessory=backpacks"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                    >
-                      Рюкзаки
-                    </Link>
-                    <Link
-                      to="/catalog?accessory=thermos"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                    >
-                      Термосы S'well
-                    </Link>
-                    <Link
-                      to="/catalog?accessory=yoga-mats"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                    >
-                      Коврики для йоги
-                    </Link>
-                    <Link
-                      to="/catalog?accessory=cosmetics"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                    >
-                      КОСМЕТИКА
-                    </Link>
+
+                    {category?.category_accessories?.map((cat) => (
+                        <Link
+                          key={cat.id}
+                          to={`/catalog?accessory=${cat.id}`}
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                        >
+                          {cat.name}
+                        </Link>
+                      ))}
+                      
                   </div>
                 </div>
               </div>
@@ -177,19 +185,22 @@ const Header: React.FC = () => {
           <div className="flex items-center space-x-4 absolute right-[-170px] top-1/2 -translate-y-1/2">
             {/* Поиск */}
             <button
-              onClick={toggleSearch}
+              onClick={handleSearchClick}
               className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
             >
               <Search className="h-5 w-5" />
             </button>
 
             {/* Аккаунт */}
-            <Link
-              to="/auth"
+            <button
+              onClick={async () => {
+                const isAuth = await checkUser()
+                navigate(isAuth ? '/profile' : '/auth')
+              }}
               className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
             >
               <User className="h-5 w-5" />
-            </Link>
+            </button>
 
             {/* Корзина */}
             <Link
@@ -198,7 +209,7 @@ const Header: React.FC = () => {
             >
               <ShoppingBag className="h-5 w-5" />
               <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                0
+                {cartCount}
               </span>
             </Link>
 
@@ -212,19 +223,6 @@ const Header: React.FC = () => {
           </div>
         </div>
 
-        {/* Строка поиска */}
-        {isSearchOpen && (
-          <div className="py-4 border-t border-gray-200">
-            <div className="relative max-w-md mx-auto">
-              <input
-                type="text"
-                placeholder="Поиск товаров..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Мобильное меню */}
@@ -262,7 +260,7 @@ const Header: React.FC = () => {
               О нас
             </Link>
             <Link
-              to="/contacts"
+              to="/contact"
               className="block px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
               onClick={() => setIsMenuOpen(false)}
             >

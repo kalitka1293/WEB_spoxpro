@@ -33,9 +33,8 @@ const HeroSlider: React.FC<HeroSliderProps> = ({ images, interval = 5000 }) => {
             src={image}
             alt={`spoXpro Collection ${index + 1}`}
             className="w-full h-full object-cover"
-            onLoad={() => console.log(`Image loaded: ${image}`)}
+            onLoad={() => {}}
             onError={(e) => {
-              console.error(`Failed to load image: ${image}`)
               const target = e.target as HTMLImageElement;
               target.style.display = 'none';
             }}

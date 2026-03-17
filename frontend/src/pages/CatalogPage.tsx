@@ -1,20 +1,69 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Filter, Grid, List, Star } from 'lucide-react'
-import { CLOTHING_CATEGORIES } from '../types/product'
-import { mockProducts } from '../data/mockProducts'
+import { Filter, Grid, List, Star, Search } from 'lucide-react'
+import { toast } from '@/components/Toast'
+import { getCategory, getAllProduct } from '@/API/RequestAPI'
+import { Category, ProductAllItem } from '@/API/interface'
 
 const CatalogPage: React.FC = () => {
   const [searchParams] = useSearchParams()
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [selectedCategories, setSelectedCategories] = useState<number[]>([])
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'discount'>('name')
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000])
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 200000])
   const [productTypes, setProductTypes] = useState<string[]>(['clothing', 'accessories'])
   const [selectedActivities, setSelectedActivities] = useState<string[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [category, setCategory] = useState<Category | null>(null);
+  const [productAll, setProductAll] = useState<ProductAllItem[] | null>(null);
+  const [productRecommendations, setProductRecommendations] = useState<ProductAllItem[] | null>(null);
 
   // Применить фильтр категории из URL при загрузке
   useEffect(() => {
+
+        const fetchCategory = async () => {
+          try {
+            const data = await getCategory();
+            if (data !== undefined && data !== null) {  
+            setCategory(data);
+          }
+          } catch (error) {
+            toast('Ошибка загрузки категории')
+            console.error('Ошибка загрузки категории:', error);
+          }
+        };
+    
+        fetchCategory();
+
+        const fetchgetAllProduct = async () => {
+          try {
+            const data = await getAllProduct();
+            if (data !== undefined && data !== null) {  
+            setProductAll(data as unknown as ProductAllItem[]);
+          }
+          } catch (error) {
+            toast('Ошибка загрузки товаров')
+            console.error('Ошибка загрузки категории:', error);
+          }
+        };
+    
+        fetchgetAllProduct();
+
+      const fetchgetAllProductRecommendations = async () => {
+          try {
+            const data = await getAllProduct(3);
+            if (data !== undefined && data !== null) {  
+            setProductRecommendations(data as unknown as ProductAllItem[]);
+          }
+          } catch (error) {
+            toast('Ошибка загрузки рекомендаций')
+            console.error('Ошибка загрузки категории:', error);
+          }
+        };
+    
+        fetchgetAllProductRecommendations();
+
     const categoryParam = searchParams.get('category')
     if (categoryParam) {
       const categoryId = parseInt(categoryParam, 10)
@@ -22,10 +71,20 @@ const CatalogPage: React.FC = () => {
         setSelectedCategories([categoryId])
       }
     } else {
-      // Если нет параметра category, сбросить фильтр
       setSelectedCategories([])
     }
+
+    if (searchParams.get('search') === 'open') {
+      setIsSearchOpen(true)
+    }
+
+    const onToggleSearch = () => setIsSearchOpen(prev => !prev)
+    window.addEventListener('toggle-search', onToggleSearch)
+    return () => window.removeEventListener('toggle-search', onToggleSearch)
   }, [searchParams])
+
+
+  
 
   // Скролл вверх при загрузке страницы
   useEffect(() => {
@@ -34,28 +93,33 @@ const CatalogPage: React.FC = () => {
 
   // Рандомные рекомендации (товары из других категорий или случайные)
   const recommendedProducts = React.useMemo(() => {
+    const products = productRecommendations ?? []
     let otherProducts
     
     if (selectedCategories.length > 0) {
-      // Если выбраны категории - показывать товары из других категорий
-      otherProducts = mockProducts.filter(
-        product => !selectedCategories.includes(product.categoryId) && product.discountPercent === 0
+      otherProducts = products.filter(
+        product => !selectedCategories.includes(product.categoryId)
       )
     } else {
-      // Если категории не выбраны - показывать случайные товары
-      otherProducts = mockProducts.filter(product => product.discountPercent === 0)
+      otherProducts = products
     }
     
-    // Перемешать и взять первые 3
     const shuffled = [...otherProducts].sort(() => Math.random() - 0.5)
     return shuffled.slice(0, 3)
-  }, [selectedCategories])
+  }, [selectedCategories, productRecommendations])
 
-  // Фильтрация товаров
-  const filteredProducts = mockProducts.filter(product => {
+  const filteredProducts = (productAll ?? []).filter(product => {
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase()
+      const matches = product.name.toLowerCase().includes(q)
+        || product.description.toLowerCase().includes(q)
+        || product.color.toLowerCase().includes(q)
+        || product.size.toLowerCase().includes(q)
+      if (!matches) return false
+    }
     if (selectedCategories.length > 0 && !selectedCategories.includes(product.categoryId)) return false
     if (product.price < priceRange[0] || product.price > priceRange[1]) return false
-    if (product.discountPercent > 0) return false // Убрать товары со скидкой
+    if (!productTypes.includes(product.type)) return false
     return true
   })
 
@@ -77,6 +141,21 @@ const CatalogPage: React.FC = () => {
       <div className="container mx-auto px-4 py-8">
         {/* Заголовок */}
         <div className="mb-8">
+          {isSearchOpen && (
+            <div className="mb-6">
+              <div className="relative max-w-md">
+                <input
+                  type="text"
+                  placeholder="Поиск товаров..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+              </div>
+            </div>
+          )}
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
             Каталог товаров
           </h1>
@@ -135,33 +214,23 @@ const CatalogPage: React.FC = () => {
               <div className="mb-6">
                 <h3 className="font-medium text-gray-900 mb-3">Вид спорта</h3>
                 <div className="space-y-2">
-                  {['fitness', 'yoga', 'running', 'walking', 'stretching', 'dancing'].map((activity) => {
-                    const activityNames: {[key: string]: string} = {
-                      fitness: 'Fitness',
-                      yoga: 'Yoga',
-                      running: 'Бег',
-                      walking: 'Прогулка',
-                      stretching: 'Растяжка',
-                      dancing: 'Танцы'
-                    }
-                    return (
-                      <label key={activity} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={selectedActivities.includes(activity)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedActivities([...selectedActivities, activity])
-                            } else {
-                              setSelectedActivities(selectedActivities.filter(a => a !== activity))
-                            }
-                          }}
-                          className="mr-2"
-                        />
-                        <span className="text-sm text-gray-700">{activityNames[activity]}</span>
-                      </label>
-                    )
-                  })}
+                  {category?.category_sport?.map((cat) => (
+                    <label key={cat.id} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedActivities.includes(cat.id.toString())}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedActivities([...selectedActivities, cat.id.toString()])
+                          } else {
+                            setSelectedActivities(selectedActivities.filter(a => a !== cat.id.toString()))
+                          }
+                        }}
+                        className="mr-2"
+                      />
+                      <span className="text-sm text-gray-700">{cat.name}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
 
@@ -169,21 +238,21 @@ const CatalogPage: React.FC = () => {
               <div className="mb-6">
                 <h3 className="font-medium text-gray-900 mb-3">Категории</h3>
                 <div className="space-y-2">
-                  {CLOTHING_CATEGORIES.map((category) => (
-                    <label key={category.id} className="flex items-center">
+                  {category?.category_main?.map((cat) => (
+                    <label key={cat.id} className="flex items-center">
                       <input
                         type="checkbox"
-                        checked={selectedCategories.includes(category.id)}
+                        checked={selectedCategories.includes(cat.id)}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedCategories([...selectedCategories, category.id])
+                            setSelectedCategories([...selectedCategories, cat.id])
                           } else {
-                            setSelectedCategories(selectedCategories.filter(id => id !== category.id))
+                            setSelectedCategories(selectedCategories.filter(a => a !== cat.id))
                           }
                         }}
                         className="mr-2"
                       />
-                      <span className="text-sm text-gray-700">{category.name}</span>
+                      <span className="text-sm text-gray-700">{cat.name}</span>
                     </label>
                   ))}
                 </div>
@@ -224,7 +293,7 @@ const CatalogPage: React.FC = () => {
                       3000-5000₽
                     </button>
                     <button
-                      onClick={() => setPriceRange([5000, 10000])}
+                      onClick={() => setPriceRange([5000, 200000])}
                       className="text-xs px-3 py-1 border border-gray-300 rounded-full hover:bg-gray-100"
                     >
                       От 5000₽
@@ -237,7 +306,7 @@ const CatalogPage: React.FC = () => {
               <button
                 onClick={() => {
                   setSelectedCategories([])
-                  setPriceRange([0, 10000])
+                  setPriceRange([0, 200000])
                   setProductTypes(['clothing', 'accessories'])
                   setSelectedActivities([])
                 }}
@@ -298,7 +367,7 @@ const CatalogPage: React.FC = () => {
                   <div className={`relative ${viewMode === 'list' ? 'w-80 h-80 flex-shrink-0 mr-8' : 'mb-4'}`}>
                     <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
                       <img
-                        src={product.images[0]}
+                        src={product.image}
                         alt={product.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         onError={(e) => {
@@ -356,14 +425,6 @@ const CatalogPage: React.FC = () => {
                         </span>
                       </div>
                     </div>
-                    
-                    {viewMode === 'list' && (
-                      <div className="mt-4">
-                        <span className="text-sm text-gray-600">
-                          Категория: <span className="font-medium">{product.category.name}</span>
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </Link>
               ))}
@@ -386,7 +447,7 @@ const CatalogPage: React.FC = () => {
                       <div className="relative mb-4">
                         <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
                           <img
-                            src={product.images[0]}
+                            src={product.image}
                             alt={product.name}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             onError={(e) => {
@@ -448,7 +509,7 @@ const CatalogPage: React.FC = () => {
                 <button
                   onClick={() => {
                     setSelectedCategories([])
-                    setPriceRange([0, 10000])
+                    setPriceRange([0, 200000])
                     setProductTypes(['clothing', 'accessories'])
                     setSelectedActivities([])
                   }}

@@ -7,7 +7,7 @@ import os
 from typing import Optional
 from pydantic_settings import BaseSettings
 from pydantic import validator
-
+from typing import List
 
 class Settings(BaseSettings):
     """Application settings with environment variable support."""
@@ -28,18 +28,18 @@ class Settings(BaseSettings):
     database_echo: bool = False
     
     # JWT settings
-    jwt_secret_key: str = "your-secret-key-change-in-production"
+    jwt_secret_key: str = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3h4i5j6k7l8m9n0o1p2q3r4s5t6u7v8w9x0y1z2"
     jwt_algorithm: str = "HS256"
-    jwt_access_token_expire_minutes: int = 30
+    jwt_access_token_expire_minutes: int = 120
     
     # CORS settings
     cors_origins: list = ["http://localhost:3000", "http://127.0.0.1:3000"]
-    cors_allow_credentials: bool = True
+    cors_allow_credentials: bool = False
     cors_allow_methods: list = ["*"]
     cors_allow_headers: list = ["*"]
     
     # Logging settings
-    log_level: str = "INFO"
+    log_level: str = "WARNING"
     log_file_path: str = "./logs/log_file/spoxpro.log"
     log_max_file_size: int = 10 * 1024 * 1024  # 10MB
     log_backup_count: int = 5
@@ -50,6 +50,14 @@ class Settings(BaseSettings):
     cookie_secure: bool = False
     cookie_httponly: bool = True
     cookie_samesite: str = "lax"
+    
+    # Upload settings
+    images_path: str = r"C:\Users\lol\work\spoXpro\frontend\public\img\upload_dir\images"
+    images_url_prefix: str = "/upload_dir/images"
+    
+    # Admin settings
+    admin_username: str = "admin"
+    admin_password: str = "admin"
     
     @validator("jwt_secret_key")
     def validate_jwt_secret(cls, v, values):
@@ -75,34 +83,6 @@ class Settings(BaseSettings):
 # Global settings instance
 settings = Settings()
 
-
 def get_settings() -> Settings:
     """Get application settings instance."""
     return settings
-
-
-def validate_required_settings():
-    """Validate that all required settings are properly configured."""
-    errors = []
-    
-    # Check JWT secret in production
-    if settings.environment == "production":
-        if settings.jwt_secret_key == "your-secret-key-change-in-production":
-            errors.append("JWT_SECRET_KEY must be set in production")
-    
-    # Check database URL
-    if not settings.database_url:
-        errors.append("DATABASE_URL must be set")
-    
-    # Check log file path directory exists
-    log_dir = os.path.dirname(settings.log_file_path)
-    if not os.path.exists(log_dir):
-        try:
-            os.makedirs(log_dir, exist_ok=True)
-        except Exception as e:
-            errors.append(f"Cannot create log directory {log_dir}: {e}")
-    
-    if errors:
-        raise ValueError(f"Configuration validation failed: {'; '.join(errors)}")
-    
-    return True

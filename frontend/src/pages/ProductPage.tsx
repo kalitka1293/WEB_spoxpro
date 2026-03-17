@@ -1,16 +1,60 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Star, ShoppingBag, Heart, Share2, ChevronLeft, ChevronRight } from 'lucide-react'
-import { getProductById, mockProducts } from '../data/mockProducts'
+
+import { getProductById, getReviewById, postAddBasket } from '@/API/RequestAPI'
+import { Product, ReviewProduct } from '@/API/interface'
+
 
 const ProductPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
-  const product = id ? getProductById(id) : null
-  
+
+  const [product, setProduct] = useState<Product | null>(null)
+  const [review, setReview] = useState<ReviewProduct | null>(null)
+  const [loading, setLoading] = useState(true)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [selectedSize, setSelectedSize] = useState('')
   const [quantity, setQuantity] = useState(1)
   const [isWishlisted, setIsWishlisted] = useState(false)
+  const [addedToCart, setAddedToCart] = useState(false)
+
+  const handleAddToCart = async () => {
+    try {
+      await postAddBasket({ product_id: product!.id, size: selectedSize, score: quantity })
+      window.dispatchEvent(new Event('cart-updated'))
+      setAddedToCart(true)
+    } catch (error) {
+      console.error('Ошибка добавления в корзину:', error)
+    }
+  }
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        if (id) {
+          const data = await getProductById(Number(id))
+          setProduct(data as unknown as Product)
+          const reviewData = await getReviewById(Number(id))
+          setReview(reviewData as unknown as ReviewProduct)
+        }
+      } catch (error) {
+        console.error('Ошибка загрузки товара:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchProduct()
+  }, [id])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">Загрузка...</p>
+        </div>
+      </div>
+    )
+  }
 
   if (!product) {
     return (
@@ -29,11 +73,7 @@ const ProductPage: React.FC = () => {
     ? Math.round(product.price * (1 - product.discountPercent / 100))
     : product.price
 
-  const relatedProducts = mockProducts
-    .filter(p => p.categoryId === product.categoryId && p.id !== product.id)
-    .slice(0, 4)
-
-  const availableSizes = ['XS', 'S', 'M', 'L', 'XL']
+  const availableSizes = product.size
 
   const nextImage = () => {
     setSelectedImageIndex((prev) => 
@@ -57,7 +97,7 @@ const ProductPage: React.FC = () => {
           </Link>
           <span className="text-gray-400 mx-2">/</span>
           <Link 
-            to={`/category/${product.category.slug}`}
+            to={`/catalog?category=${product.category.categotyId}`}
             className="text-gray-600 hover:text-blue-600 transition-colors"
           >
             {product.category.name}
@@ -166,10 +206,10 @@ const ProductPage: React.FC = () => {
               <div className="flex items-center space-x-2 mb-4">
                 <div className="flex items-center text-yellow-400">
                   {[...Array(5)].map((_, i) => (
-                    <Star key={i} className="h-5 w-5 fill-current" />
+                    <Star key={i} className={`h-5 w-5 ${i < Math.floor(parseFloat(review?.summary ?? '0')) ? 'fill-current' : 'text-gray-300'}`} />
                   ))}
                 </div>
-                <span className="text-sm text-gray-600">(4.8) • 127 отзывов</span>
+                <span className="text-sm text-gray-600">({review?.summary ?? 0}) • Оценка: {review?.score ?? 0}</span>
               </div>
 
               {/* Цена */}
@@ -270,13 +310,24 @@ const ProductPage: React.FC = () => {
 
             {/* Кнопки действий */}
             <div className="space-y-4">
-              <button
-                disabled={!selectedSize || product.stockQuantity === 0}
-                className="w-full btn-primary text-lg py-4 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-              >
-                <ShoppingBag className="h-5 w-5 mr-2" />
-                {product.stockQuantity === 0 ? 'Нет в наличии' : 'Добавить в корзину'}
-              </button>
+              {addedToCart ? (
+                <Link
+                  to="/cart"
+                  className="w-full btn-primary text-lg py-4 flex items-center justify-center"
+                >
+                  <ShoppingBag className="h-5 w-5 mr-2" />
+                  Перейти в корзину
+                </Link>
+              ) : (
+                <button
+                  onClick={handleAddToCart}
+                  disabled={!selectedSize || product.stockQuantity === 0}
+                  className="w-full btn-primary text-lg py-4 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                >
+                  <ShoppingBag className="h-5 w-5 mr-2" />
+                  {product.stockQuantity === 0 ? 'Нет в наличии' : 'Добавить в корзину'}
+                </button>
+              )}
               
               <div className="flex space-x-4">
                 <button
@@ -308,69 +359,34 @@ const ProductPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Похожие товары */}
-        {relatedProducts.length > 0 && (
-          <div className="border-t border-gray-200 pt-16">
-            <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">
-              Похожие товары
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {relatedProducts.map((relatedProduct) => (
-                <Link
-                  key={relatedProduct.id}
-                  to={`/product/${relatedProduct.id}`}
-                  className="product-card-hover card p-4 bg-white group"
-                >
-                  <div className="relative mb-4">
-                    <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
-                      <img
-                        src={relatedProduct.images[0]}
-                        alt={relatedProduct.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = '/img/placeholder-product.jpg';
-                        }}
-                      />
+        {/* Отзывы */}
+        {review?.reviews && review.reviews.length > 0 && (
+          <div className="mb-16">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Отзывы</h2>
+            <div className="space-y-4">
+              {review.reviews.map((r, i) => (
+                <div key={i} className="card p-6 bg-white">
+                  <div className="flex items-center mb-3">
+                    <div className="w-10 h-10 rounded-full overflow-hidden mr-3">
+                      <img src="/img/logo/logo.png" alt="avatar" className="w-full h-full object-cover" />
                     </div>
-                    {relatedProduct.discountPercent > 0 && (
-                      <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded-full text-xs font-medium">
-                        -{relatedProduct.discountPercent}%
+                    <div>
+                      <span className="font-semibold text-gray-900">{r.username}</span>
+                      <div className="flex items-center text-yellow-400">
+                        {[...Array(5)].map((_, j) => (
+                          <Star key={j} className={`h-4 w-4 ${j < Math.floor(parseFloat(r.rating)) ? 'fill-current' : 'text-gray-300'}`} />
+                        ))}
+                        <span className="text-sm text-gray-600 ml-1">{r.rating}</span>
                       </div>
-                    )}
-                  </div>
-                  
-                  <h3 className="font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors line-clamp-2">
-                    {relatedProduct.name}
-                  </h3>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      {relatedProduct.discountPercent > 0 ? (
-                        <>
-                          <span className="font-bold text-gray-900">
-                            {Math.round(relatedProduct.price * (1 - relatedProduct.discountPercent / 100))}₽
-                          </span>
-                          <span className="text-sm text-gray-500 line-through">
-                            {relatedProduct.price}₽
-                          </span>
-                        </>
-                      ) : (
-                        <span className="font-bold text-gray-900">
-                          {relatedProduct.price}₽
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center text-yellow-400">
-                      <Star className="h-4 w-4 fill-current" />
-                      <span className="text-sm text-gray-600 ml-1">4.8</span>
                     </div>
                   </div>
-                </Link>
+                  <p className="text-gray-600 text-sm">{r.text}</p>
+                </div>
               ))}
             </div>
           </div>
         )}
+
       </div>
     </div>
   )
