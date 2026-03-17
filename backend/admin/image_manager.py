@@ -15,9 +15,13 @@ router_images = APIRouter(prefix="/image-manager", tags=["image-manager"])
 IMAGES_DIR = get_settings().images_path
 
 
+def _root(request: Request) -> str:
+    return request.scope.get("root_path", "")
+
+
 def _check_admin(request: Request):
     if not request.session.get("admin_logged_in"):
-        return RedirectResponse("/admin/login", status_code=303)
+        return RedirectResponse(f"{_root(request)}/admin/login", status_code=303)
     return None
 
 
@@ -33,8 +37,9 @@ def _serve_url(img):
     return f"{get_settings().images_url_prefix}/{img['file_id']}"
 
 
-def _render_page(product, images, msg=""):
+def _render_page(request, product, images, msg=""):
     pid = product.id
+    root = _root(request)
     msg_html = f'<div class="alert alert-success mt-2">{msg}</div>' if msg else ""
 
     imgs_html = ""
@@ -47,12 +52,12 @@ def _render_page(product, images, msg=""):
             <div class="card-body p-1 text-center">
                 <small class="text-muted">{fname[:20]}</small>
                 <div class="mt-1">
-                    <form method="post" action="/image-manager/{pid}/delete" class="d-inline">
+                    <form method="post" action="{root}/image-manager/{pid}/delete" class="d-inline">
                         <input type="hidden" name="index" value="{i}">
                         <button class="btn btn-danger btn-sm">&times;</button>
                     </form>
-                    {"" if i == 0 else f'<form method="post" action="/image-manager/{pid}/move" class="d-inline"><input type="hidden" name="from_idx" value="{i}"><input type="hidden" name="to_idx" value="{i-1}"><button class="btn btn-outline-secondary btn-sm">&uarr;</button></form>'}
-                    {"" if i == len(images)-1 else f'<form method="post" action="/image-manager/{pid}/move" class="d-inline"><input type="hidden" name="from_idx" value="{i}"><input type="hidden" name="to_idx" value="{i+1}"><button class="btn btn-outline-secondary btn-sm">&darr;</button></form>'}
+                    {"" if i == 0 else f'<form method="post" action="{root}/image-manager/{pid}/move" class="d-inline"><input type="hidden" name="from_idx" value="{i}"><input type="hidden" name="to_idx" value="{i-1}"><button class="btn btn-outline-secondary btn-sm">&uarr;</button></form>'}
+                    {"" if i == len(images)-1 else f'<form method="post" action="{root}/image-manager/{pid}/move" class="d-inline"><input type="hidden" name="from_idx" value="{i}"><input type="hidden" name="to_idx" value="{i+1}"><button class="btn btn-outline-secondary btn-sm">&darr;</button></form>'}
                 </div>
             </div>
         </div>'''
@@ -67,12 +72,12 @@ def _render_page(product, images, msg=""):
 <div class="my-3">{imgs_html if imgs_html else '<p class="text-muted">Нет изображений</p>'}</div>
 <hr>
 <h5>Добавить изображения</h5>
-<form method="post" action="/image-manager/{pid}/upload" enctype="multipart/form-data">
+<form method="post" action="{root}/image-manager/{pid}/upload" enctype="multipart/form-data">
 <div class="mb-2"><input type="file" name="files" multiple accept="image/*" class="form-control" required></div>
 <button type="submit" class="btn btn-primary">Загрузить</button>
 </form>
 <hr>
-<a href="/admin/product/list" class="btn btn-secondary">Назад к товарам</a>
+<a href="{root}/admin/product/list" class="btn btn-secondary">Назад к товарам</a>
 </div></body></html>"""
 
 
@@ -87,7 +92,7 @@ async def image_manager_page(product_id: int, request: Request):
         if not product:
             return HTMLResponse("Товар не найден", status_code=404)
         images = _get_images(product)
-        return HTMLResponse(_render_page(product, images))
+        return HTMLResponse(_render_page(request, product, images))
     finally:
         db.close()
 
@@ -132,7 +137,7 @@ async def upload_images(product_id: int, request: Request):
         db.execute(text("UPDATE products SET images = :img WHERE id = :pid"),
                    {"img": json.dumps(images), "pid": product_id})
         db.commit()
-        return RedirectResponse(f"/image-manager/{product_id}", status_code=303)
+        return RedirectResponse(f"{_root(request)}/image-manager/{product_id}", status_code=303)
     finally:
         db.close()
 
@@ -162,7 +167,7 @@ async def delete_image(product_id: int, request: Request):
         db.execute(text("UPDATE products SET images = :img WHERE id = :pid"),
                    {"img": json.dumps(images), "pid": product_id})
         db.commit()
-        return RedirectResponse(f"/image-manager/{product_id}", status_code=303)
+        return RedirectResponse(f"{_root(request)}/image-manager/{product_id}", status_code=303)
     finally:
         db.close()
 
@@ -189,6 +194,6 @@ async def move_image(product_id: int, request: Request):
         db.execute(text("UPDATE products SET images = :img WHERE id = :pid"),
                    {"img": json.dumps(images), "pid": product_id})
         db.commit()
-        return RedirectResponse(f"/image-manager/{product_id}", status_code=303)
+        return RedirectResponse(f"{_root(request)}/image-manager/{product_id}", status_code=303)
     finally:
         db.close()

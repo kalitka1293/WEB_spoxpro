@@ -129,7 +129,8 @@ class ProductView(ModelView):
         icon_class="fas fa-images",
     )
     def manage_images_action(self, request: Request, pk) -> str:
-        return f"/image-manager/{pk}"
+        root = request.scope.get("root_path", "")
+        return f"{root}/image-manager/{pk}"
 
 
 class UserView(ModelView):
